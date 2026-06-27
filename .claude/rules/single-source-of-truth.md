@@ -1,69 +1,59 @@
 ---
 paths:
-  - "Figures/**/*"
-  - "Quarto/**/*.qmd"
-  - "Slides/**/*.tex"
+  - "scripts/R/**/*.R"
+  - "data/processed/**/*"
+  - "results/**/*"
 ---
 
 # Single Source of Truth: Enforcement Protocol
 
-**The Beamer `.tex` file is the authoritative source for ALL content.** Everything else is derived.
+**The `scripts/R/` pipeline and its generated outputs are the authoritative source for every
+number, table, and figure in this project.** Everything downstream is derived. Never edit a
+derived artifact by hand; always propagate from the source script and re-run.
 
-## The SSOT Chain
-
-```
-Beamer .tex (SOURCE OF TRUTH)
-  ├── extract_tikz.tex → PDF → SVGs (derived)
-  ├── Quarto .qmd → HTML (derived)
-  ├── Bibliography_base.bib (shared)
-  └── Figures/LectureN/*.rds → plotly charts (data source)
-
-NEVER edit derived artifacts independently.
-ALWAYS propagate changes from source → derived.
-```
-
----
-
-## TikZ Freshness Protocol (MANDATORY)
-
-**Before using ANY TikZ SVG in a Quarto slide, verify it matches the current Beamer source.**
-
-### Diff-Check Procedure
-
-1. Read the TikZ block from the Beamer `.tex` file
-2. Read the corresponding block from `Figures/LectureN/extract_tikz.tex`
-3. Compare EVERY coordinate, label, color, opacity, and anchor point
-4. If ANY difference exists: update `extract_tikz.tex` from Beamer, recompile, regenerate SVGs
-5. Only then reference the SVG in the QMD
-
-### When to Re-Extract
-
-Re-extract ALL TikZ diagrams when:
-- The Beamer `.tex` file has been modified since last extraction
-- Starting a new Quarto translation
-- Any TikZ-related quality issue is reported
-- Before any commit that includes QMD changes
-
----
-
-## Environment Parity (MANDATORY)
-
-**Every Beamer environment MUST have a CSS equivalent before translation begins.**
-
-1. Scan the Beamer source for all custom environments
-2. Check each against your theme SCSS file
-3. If ANY environment is missing from SCSS, create it BEFORE translating
-
----
-
-## Content Fidelity Checklist
+## The derivation chain
 
 ```
-[ ] Frame count: Beamer frames == Quarto slides
-[ ] Math check: every equation appears with identical notation
-[ ] Citation check: every \cite has a @key in Quarto
-[ ] Environment check: every Beamer box has CSS equivalent
-[ ] Figure check: every \includegraphics has SVG or plotly equivalent
-[ ] No added content: Quarto does not invent slides not in Beamer
-[ ] No dropped content: every Beamer idea appears in Quarto
+data/raw/*               (immutable inputs — VIGITEL, PNS, PNAD, IBGE, RFB, CONFAZ)
+  └─ 01_load.R      → load + harmonize
+     └─ 02_clean.R  → data/processed/*.csv  (clean panel, state_icms_rates, baseline)
+        └─ 03_analyze.R → scripts/R/_outputs/*.rds   (calibration, elasticities, simulation)
+           ├─ 04_tables.R  → results/tables/*        (derived)
+           └─ 05_figures.R → results/figures/*       (derived)
+              └─ paper / slides numbers              (derived — must cite an .rds)
+
+NEVER edit a results/ table, a figure, or a paper number independently.
+ALWAYS change the upstream script (or 00_config.R), re-run, and let outputs regenerate.
 ```
+
+`scripts/R/00_config.R` is the **parameter source of truth**: baseline year, IS-rate grid,
+cross-elasticity values, demand functional form, revenue scope, markup scenarios, and the
+calibration target all live there — not inline in 01–07. Changing a parameter means editing
+`00_config.R` and re-running, never patching a downstream value.
+
+## Freshness protocol (MANDATORY)
+
+Before trusting any number in `results/`, the paper, or a slide:
+
+1. Confirm the `.rds` it derives from is **newer** than every script upstream of it.
+2. If any upstream script (or `00_config.R`) changed since the `.rds` was written, **re-run** the
+   affected stages before using the number.
+3. Re-run the full pipeline (`Rscript scripts/R/00_run_all.R`) before any commit that changes
+   analysis logic, parameters, or input data.
+
+## Reproducibility checklist
+
+```
+[ ] Every results/ table and figure traces to a named scripts/R/_outputs/*.rds
+[ ] No parameter hardcoded outside 00_config.R
+[ ] Calibration reproduces R_0 = R$17.75 bn (2019) — see project-conventions.md
+[ ] Seeds set for any stochastic step; RNG kind recorded
+[ ] No derived artifact edited by hand since its source last ran
+[ ] Numbers cited in papers/ or slides match the current .rds (run /audit-reproducibility)
+```
+
+## Cross-references
+
+- [`.claude/rules/project-conventions.md`](project-conventions.md) — the substantive invariants.
+- [`.claude/rules/cross-artifact-review.md`](cross-artifact-review.md) — paper ↔ code dependency graph.
+- [`.claude/rules/replication-protocol.md`](replication-protocol.md) — numeric tolerance contract.
