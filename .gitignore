@@ -82,6 +82,11 @@ quality_reports/diagnoses/*
 # R analysis outputs (generated artifacts; keep scripts, ignore outputs)
 scripts/R/_outputs/
 
+# Raw research data — large / redistribution-restricted; keep dir structure only.
+# Small derived files in data/processed/ ARE committed. See data/README.md.
+data/raw/*
+!data/raw/.gitkeep
+
 # Output artifacts — uncomment lines below based on your preference
 # *.rds
 # output/**/*.rds
